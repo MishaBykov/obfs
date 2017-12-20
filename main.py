@@ -109,11 +109,13 @@ def rename_node_in_depth(root, old_name, name):
     i = 0
     for i in range(len(root.body)):
         f = str(root.body[i].name).find(old_name)
-        if (f == 0 or f > 0 and not str(root.body[i].name[f - 1]).isalpha()) and \
-                (f + len(old_name) + 1 < len(root.body[i].name)
-                 and not str(root.body[i].name[f + len(old_name) + 1]).isalpha()):
-            str(root.body[i].name).replace(old_name, name)
-        rename_node_in_depth(root.body[i], old_name, name)
+        if f == -1:
+            len_old_name = len(old_name)
+            len_body_i_name = len(root.body[i].name)
+            if f == 0:
+                if len_old_name + 1 == len_body_i_name:
+                    str(root.body[i].name).replace(old_name, name)
+            rename_node_in_depth(root.body[i], old_name, name)
     return i
 
 
