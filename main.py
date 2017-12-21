@@ -1,3 +1,4 @@
+import sys
 import re
 
 
@@ -11,20 +12,20 @@ class Node:
 
 root_tree = Node(None, 'root', [], 'root')
 active_node = root_tree
-count_rename = 0
 
-def print_root(root):
+
+def print_root(root, out_file=sys.stdout):
     if len(root.body) > 1:
-        print('{')
+        print('{', file=out_file)
         for i in root.body:
-            print(i.name)
-            print_root(i)
-        print('}')
+            print(i.name, file=out_file)
+            print_root(i, out_file)
+        print('}', file=out_file)
     else:
         for i in root.body:
-            print(i.name, end='')
-            print_root(i)
-            print(';')
+            print(i.name, file=out_file)
+            print_root(i, out_file)
+            print(';', file=out_file)
 
 
 def del_type(root, node_type):
@@ -105,29 +106,26 @@ def analysis_file(file_path):
             break
 
 
-def rename_node_in_depth(root, old_name, name):
-    i = 0
+def rename_node_in_depth(root, old_name, new_name):
     for i in range(len(root.body)):
-        f = str(root.body[i].name).find(old_name)
-        if f == -1:
-            len_old_name = len(old_name)
-            len_body_i_name = len(root.body[i].name)
-            if f == 0:
-                if len_old_name + 1 == len_body_i_name:
-                    str(root.body[i].name).replace(old_name, name)
-            rename_node_in_depth(root.body[i], old_name, name)
-    return i
+        root.body[i].name = re.sub('(^|[^A-Za-z])(' + old_name + ')([^A-Za-z])', r'\1' + new_name + r'\3',
+                                   root.body[i].name)
+        rename_node_in_depth(root.body[i], old_name, new_name)
 
 
 def rename_variables(root):
-    global count_rename
     if root.type == 'variable':
-        i = str(root.name).replace(';', '').split(',')
-        rename_node_in_depth(root.prev, i[0].split()[1], 'v' + str(count_rename))
-        count_rename += 1
-        for j in range(1, len(i)):
-            rename_node_in_depth(root.prev, i[j].split('=')[1].strip(), 'v' + str(count_rename))
-            count_rename += 1
+        variables = str(root.name).replace(';', '').split(',')
+        try:
+            rename_node_in_depth(root.prev, variables[0].split()[1], 'v' + str(rename_variables.count_rename))
+        except AttributeError:
+            rename_variables.count_rename = 0
+            rename_node_in_depth(root.prev, variables[0].split()[1], 'v' + str(rename_variables.count_rename))
+        rename_variables.count_rename += 1
+        for i in range(1, len(variables)):
+            rename_node_in_depth(
+                root.prev, variables[i].split('=')[0].strip(), 'v' + str(rename_variables.count_rename))
+            rename_variables.count_rename += 1
     for i in root.body:
         rename_variables(i)
 
@@ -136,4 +134,6 @@ if __name__ == '__main__':
     analysis_file('quick-sort.cpp')
     del_type(root_tree, 'comment')
     rename_variables(root_tree)
-    print_root(root_tree)
+    file = open('out.cpp', 'w')
+    print_root(root_tree, file)
+    file.close()
