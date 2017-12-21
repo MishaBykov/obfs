@@ -130,9 +130,32 @@ def rename_variables(root):
         rename_variables(i)
 
 
+def rename_functions(root):
+    if root.type == 'function':
+        func_name = str(root.name).split('(')[0].split()[-1]
+        try:
+            rename_node_in_depth(root.prev, func_name, 'f' + str(rename_functions.count_rename))
+        except AttributeError:
+            rename_functions.count_rename = 0
+            rename_node_in_depth(root.prev, func_name, 'f' + str(rename_functions.count_rename))
+        rename_functions.count_rename += 1
+        rename_args = str(root.name).split('(')[1].split(',')
+        for arg in rename_args:
+            a = re.split('[^a-zA-Z]', arg)
+            arg_name = -1
+            while not a[arg_name].isalpha():
+                arg_name -= 1
+            arg_name = a[arg_name]
+            rename_node_in_depth(root.prev, arg_name, 'f' + str(rename_functions.count_rename))
+            rename_functions.count_rename += 1
+    for i in root.body:
+        rename_functions(i)
+
+
 if __name__ == '__main__':
     analysis_file('quick-sort.cpp')
     del_type(root_tree, 'comment')
+    rename_functions(root_tree)
     rename_variables(root_tree)
     file = open('out.cpp', 'w')
     print_root(root_tree, file)
