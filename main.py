@@ -62,7 +62,8 @@ def analysis_str(string, ind_root):
             a_n.body.append(Node(a_n, 'if', [], string))
         elif 'while' in string:
             a_n.body.append(Node(a_n, 'while', [], string))
-        elif len(string.split('(')[0].split('=')[0].strip().split()) == 2:
+        elif len(string.split('=')[0].strip().split()) > 1\
+                and re.match('[a-zA-Z0-9][a-zA-Z0-9_]+', string.split('=')[0].strip().split()[-1]) != 0:
             a_n.body.append(Node(a_n, 'variable', [], string))            # FIX_ME
         else:
             a_n.body.append(Node(a_n, 'other', [], string))
