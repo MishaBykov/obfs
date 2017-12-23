@@ -62,9 +62,10 @@ def analysis_str(string, ind_root):
             a_n.body.append(Node(a_n, 'if', [], string))
         elif 'while' in string:
             a_n.body.append(Node(a_n, 'while', [], string))
-        elif len(string.split('=')[0].strip().split()) > 1\
-                and re.match('[a-zA-Z0-9][a-zA-Z0-9_]+', string.split('=')[0].strip().split()[-1]) != 0:
-            a_n.body.append(Node(a_n, 'variable', [], string))            # FIX_ME
+        elif len(string.split('=')[0].split('(')[0].strip().split()) > 1 \
+                and re.match('[a-zA-Z][a-zA-Z0-9_]*', string.split('=')[0].split('(')[0].strip().split()[-1]) \
+                        is not None:
+            a_n.body.append(Node(a_n, 'variable', [], string))  # FIX_ME
         else:
             a_n.body.append(Node(a_n, 'other', [], string))
     elif string[-1] == '/' and string[-2] == '*':
@@ -125,7 +126,7 @@ def rename_variables(root):
         rename_variables.count_rename += 1
         for i in range(1, len(variables)):
             rename_node_in_depth(
-                root.prev, variables[i].split('=')[0].strip(), 'v' + str(rename_variables.count_rename))
+                root.prev, variables[i].split('=')[0].strip(), 'v' + str(rename_variables.count_rename)) # FIX_ME (type a(1, 2, 3) & type a = 1, b = 2, c = 3))
             rename_variables.count_rename += 1
     for i in root.body:
         rename_variables(i)
