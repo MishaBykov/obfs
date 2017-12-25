@@ -24,3 +24,21 @@ void quickSort(int arr[], int left, int right) {
     if (i < right)
         quickSort(arr, i, right);
 }
+
+int main()
+{
+	int a[5];
+	a[0] = 6;
+	a[1] = 8;
+	a[2] = 6;
+	a[3] = 4;
+	a[4] = 1;
+	int b = 0, c = 4;
+	quickSort(a, b, c);
+	int i = 0;
+	while (i < 5){
+        printf("%d ", a[i]);
+        i++;
+    }
+	return 0;
+}

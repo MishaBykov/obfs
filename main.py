@@ -15,17 +15,23 @@ active_node = [root_tree[0], root_tree[1]]
 
 
 def print_root(root, out_file=sys.stdout):
+    for i in root.body:
+        print(i.name, file=out_file)
+        print_tree(i, out_file)
+
+
+def print_tree(root, out_file=sys.stdout):
     if len(root.body) > 1:
         print('{', file=out_file)
         for i in root.body:
             print(i.name, file=out_file)
-            print_root(i, out_file)
+            print_tree(i, out_file)
         print('}', file=out_file)
     else:
         for i in root.body:
             print(i.name, file=out_file)
-            print_root(i, out_file)
-            print(';', file=out_file)
+            print_tree(i, out_file)
+            # print(';', file=out_file)
 
 
 def del_type(root, node_type):
@@ -42,34 +48,33 @@ def del_type(root, node_type):
 
 
 def analysis_str(string, ind_root):
-    a_n = active_node[ind_root]
     if string[0] == '/' and string[1] == '/':
-        a_n.body.append(Node(a_n, 'comment', [], string[:-1]))
+        active_node[ind_root].body.append(Node(active_node[ind_root], 'comment', [], string[:-1]))
         return
     string = re.sub(' *\n *', ' ', string)
     if string[-1] == '}':
-        a_n = a_n.prev
+        active_node[ind_root] = active_node[ind_root].prev
     elif string[-1] == '{':
         if 'if' in string:
-            a_n.body.append(Node(a_n, 'if', [], string[:-1]))
+            active_node[ind_root].body.append(Node(active_node[ind_root], 'if', [], string[:-1]))
         elif 'while' in string:
-            a_n.body.append(Node(a_n, 'while', [], string[:-1]))
+            active_node[ind_root].body.append(Node(active_node[ind_root], 'while', [], string[:-1]))
         elif '(' in string and ('=' not in string or string.find('=') > string.find('(')):
-            a_n.body.append(Node(a_n, 'function', [], string[:-1]))
-        a_n = a_n.body[-1]
+            active_node[ind_root].body.append(Node(active_node[ind_root], 'function', [], string[:-1]))
+        active_node[ind_root] = active_node[ind_root].body[-1]
     elif string[-1] == ';':
         if 'if' in string:
-            a_n.body.append(Node(a_n, 'if', [], string))
+            active_node[ind_root].body.append(Node(active_node[ind_root], 'if', [], string))
         elif 'while' in string:
-            a_n.body.append(Node(a_n, 'while', [], string))
-        elif len(string.split('=')[0].split('(')[0].strip().split()) > 1 \
-                and re.match('[a-zA-Z][a-zA-Z0-9_]*', string.split('=')[0].split('(')[0].strip().split()[-1]) \
+            active_node[ind_root].body.append(Node(active_node[ind_root], 'while', [], string))
+        elif len(string.split('=')[0].split('(')[0].strip().split()) > 1 and \
+                        re.match('[a-zA-Z_][a-zA-Z0-9_]*', string.split('=')[0].split('(')[0].strip().split()[-1]) \
                         is not None:
-            a_n.body.append(Node(a_n, 'variable', [], string))  # FIX_ME
+            active_node[ind_root].body.append(Node(active_node[ind_root], 'variable', [], string))  # FIX_ME
         else:
-            a_n.body.append(Node(a_n, 'other', [], string))
+            active_node[ind_root].body.append(Node(active_node[ind_root], 'other', [], string))
     elif string[-1] == '/' and string[-2] == '*':
-        a_n.body.append(Node(a_n, 'comment', [], string[string.find("/*"):]))
+        active_node[ind_root].body.append(Node(active_node[ind_root], 'comment', [], string[string.find("/*"):]))
 
 
 def analysis_file(file_path, ind_root):
@@ -110,23 +115,28 @@ def analysis_file(file_path, ind_root):
 
 def rename_node_in_depth(root, old_name, new_name):
     for i in range(len(root.body)):
-        root.body[i].name = re.sub('(^|[^A-Za-z])(' + old_name + ')([^A-Za-z])', r'\1' + new_name + r'\3',
+        root.body[i].name = re.sub('(^|[^A-Za-z_])(' + old_name + ')([^A-Za-z0-9_])', r'\1' + new_name + r'\3',
                                    root.body[i].name)
         rename_node_in_depth(root.body[i], old_name, new_name)
 
 
 def rename_variables(root):
     if root.type == 'variable':
-        variables = str(root.name).replace(';', '').split(',')
+        string = ''
+        if '(' in root.name:
+            string = root.name[:root.name.find('(')] + root.name[str(root.name).rfind(')') + 1:]
+        else:
+            string = root.name
+        variables = string.replace(';', '').split(',')
         try:
-            rename_node_in_depth(root, variables[0].split()[1], 'v' + str(rename_variables.count_rename))
+            rename_node_in_depth(root.prev, variables[0].split()[1], 'v' + str(rename_variables.count_rename))
         except AttributeError:
             rename_variables.count_rename = 0
-            rename_node_in_depth(root, variables[0].split()[1], 'v' + str(rename_variables.count_rename))
+            rename_node_in_depth(root.prev, variables[0].split()[1], 'v' + str(rename_variables.count_rename))
         rename_variables.count_rename += 1
         for i in range(1, len(variables)):
             rename_node_in_depth(
-                root.prev, variables[i].split('=')[0].strip(), 'v' + str(rename_variables.count_rename)) # FIX_ME (type a(1, 2, 3) & type a = 1, b = 2, c = 3))
+                root.prev, variables[i].split('=')[0].strip(), 'v' + str(rename_variables.count_rename))
             rename_variables.count_rename += 1
     for i in root.body:
         rename_variables(i)
@@ -135,35 +145,53 @@ def rename_variables(root):
 def rename_functions(root):
     if root.type == 'function':
         func_name = str(root.name).split('(')[0].split()[-1]
+        if func_name == 'main':
+            return
         try:
-            rename_node_in_depth(root, func_name, 'f' + str(rename_functions.count_rename))
+            rename_node_in_depth(root.prev, func_name, 'f' + str(rename_functions.count_rename))
         except AttributeError:
             rename_functions.count_rename = 0
-            rename_node_in_depth(root, func_name, 'f' + str(rename_functions.count_rename))
+            rename_node_in_depth(root.prev, func_name, 'f' + str(rename_functions.count_rename))
         rename_functions.count_rename += 1
-        rename_args = str(root.name).split('(')[1].split(',')
+        rename_args = str(root.name).split('(')[1].split(')')[0].split(',')
         for arg in rename_args:
-            a = re.split('[^a-zA-Z]', arg)
-            arg_name = -1
-            while not a[arg_name].isalpha():
-                arg_name -= 1
-            arg_name = a[arg_name]
+            arg = re.split('[^a-zA-Z0-9_]', arg)
+            arg_ind = -1
+            while not re.match('[a-zA-Z_][a-zA-Z0-9_]*', arg[arg_ind]):
+                arg_ind -= 1
+            arg_name = arg[arg_ind]
+            root.name = re.sub('(^|[^A-Za-z])(' + arg_name + ')([^A-Za-z])', r'\1' + 'f' +
+                               str(rename_functions.count_rename) + r'\3', root.name)
             rename_node_in_depth(root, arg_name, 'f' + str(rename_functions.count_rename))
             rename_functions.count_rename += 1
     for i in root.body:
         rename_functions(i)
 
 
+def add_nodes(src_root, dst_root):
+    for i in src_root.body:
+        if not ' main(' in i.name:
+            dst_root.body.insert(0, i)
+
+
 if __name__ == '__main__':
     analysis_file('quick-sort.cpp', 0)
     analysis_file('merge-sort.cpp', 1)
-    del_type(root_tree[0], 'comment')
-    rename_functions(root_tree[0])
-    rename_variables(root_tree[0])
 
+    del_type(root_tree[0], 'comment')
     del_type(root_tree[1], 'comment')
+
+    rename_functions(root_tree[0])
     rename_functions(root_tree[1])
+
+    rename_variables(root_tree[0])
     rename_variables(root_tree[1])
+
+    add_nodes(root_tree[0], root_tree[1])
+    add_nodes(root_tree[1], root_tree[0])
+
+    print_root(root_tree[0])
+    print_root(root_tree[1])
 
     file0 = open('out0.cpp', 'w')
     file1 = open('out1.cpp', 'w')
