@@ -162,7 +162,7 @@ def rename_variables(root):
         else:
             string = root.name
         variables = string.replace(';', '').split(',')
-        arg0 = re.split('[^a-zA-Z0-9_]', variables[0])
+        arg0 = re.split('[^a-zA-Z0-9_]', variables[0].split('=')[0])
         arg_ind = -1
         while not re.match('[a-zA-Z_][a-zA-Z0-9_]*', arg0[arg_ind]):
             arg_ind -= 1
@@ -215,14 +215,14 @@ def rename_functions(root):
 def add_nodes(src_root, dst_root):
     for i in src_root.body:
         if ' main(' not in i.name:
-            for j in range(len(dst_root.body)):
-                args = str(i.name).split('(')[1].split(')')[0].split(',')
-                for arg in args:
-                    dst_root.body[j].body.insert(0, Node(dst_root, 'variable', [], arg+';'))
-                func_name = str(i.name).split(maxsplit=1)[1]
-                dst_root.body[j].body.append(Node(dst_root, 'if',
-                                             [Node(dst_root, 'other', [], func_name)],
-                                             'if (' + get_opaque_predicates() + ') '))
+            # for j in range(len(dst_root.body)):
+            #     args = str(i.name).split('(')[1].split(')')[0].split(',')
+            #     for arg in args:
+            #         dst_root.body[j].body.insert(0, Node(dst_root, 'variable', [], arg+';'))
+            #     func_name = str(i.name).split(maxsplit=1)[1]
+            #     dst_root.body[j].body.append(Node(dst_root, 'if',
+            #                                  [Node(dst_root, 'other', [], func_name)],
+            #                                  'if (' + get_opaque_predicates() + ') '))
 
             dst_root.body.insert(0, i)
 
@@ -234,9 +234,9 @@ if __name__ == '__main__':
     del_type(root_tree[0], 'comment')
     del_type(root_tree[1], 'comment')
 
-    # new_root = copy.deepcopy(root_tree[1])
-    # add_nodes(root_tree[0], root_tree[1])
-    # add_nodes(new_root, root_tree[0])
+    new_root = copy.deepcopy(root_tree[1])
+    add_nodes(root_tree[0], root_tree[1])
+    add_nodes(new_root, root_tree[0])
 
     rename_variables(root_tree[0])
     rename_variables(root_tree[1])
