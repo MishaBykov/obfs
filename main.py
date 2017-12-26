@@ -148,7 +148,6 @@ def analysis_file(file_path, ind_root):
 
 
 def rename_node_in_depth(root, old_name, new_name):
-    print(old_name, new_name)
     for i in range(len(root.body)):
         root.body[i].name = re.sub('(^|[^A-Za-z_])(' + old_name + ')([^A-Za-z0-9_])', r'\1' + new_name + r'\3',
                                    root.body[i].name)
@@ -239,11 +238,11 @@ if __name__ == '__main__':
     # add_nodes(root_tree[0], root_tree[1])
     # add_nodes(new_root, root_tree[0])
 
-    rename_variables(root_tree[0])
-    rename_variables(root_tree[1])
-
     rename_functions(root_tree[0])
     rename_functions(root_tree[1])
+
+    rename_variables(root_tree[0])
+    rename_variables(root_tree[1])
 
     file0 = open('out0.cpp', 'w')
     file1 = open('out1.cpp', 'w')
