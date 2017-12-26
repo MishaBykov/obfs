@@ -1,5 +1,6 @@
 import sys
 import re
+import copy
 
 
 class Node:
@@ -12,6 +13,39 @@ class Node:
 
 root_tree = [Node(None, 'root', [], 'root'), Node(None, 'root', [], 'root')]
 active_node = [root_tree[0], root_tree[1]]
+opaque_predicates = [
+    "(x + x & 1) == 0",
+    "(x + -x & 1) == 0",
+    "~x != x * 4u >> 2",
+    "(-x & 1) == (x & 1)",
+    "((-x ^ x) & 1) == 0",
+    "(x * 0x80 & 0x56) == 0",
+    "(x << 1 ^ 0x1765) != 0",
+    "~(-x * 0x40) != x << 6",
+    "(~(x * 0x80) & 0x3d) == 0x3d",
+    "x - 0x9d227fa9 != x - 0x699c945e",
+    "(y ^ y - 0x35f5f4d2) != 0x42a26409",
+    "(x * 0x20000000 & 0x19a27923) == 0",
+    "(int)(y * 9u + y * 0xf7u >> 3) >= 0",
+    "(x * 4 & 8) == (x + x * 3 - 0x1fef9d8f & 8)",
+    "(x | 0xffffdbe8) - 0x1baa != x || (x & 0x10) == 0x10",
+    "(x ^ 0x1145f) != 0 || (x | 0xfffeffff) == 0xffffffff",
+    "(uint)x / 0x59d7e3 != 0x90298cf9 || (x * 3 + x & 3) == 0",
+    "((uint)x % 0x38 + 0xe4df62c8 & 0x6d755e00) == 0x64554200",
+    "(x ^ 0x770363c6) != 0 || ((uint)x >> 0x19 ^ 0x926797eb) != 0",
+    "(uint)y / 0x2369af8 - 0x78400000 != (uint)x / 0x1f2ce * 0x10",
+    "(x & 0x8e3ef800) != 0x70641deb && (uint)x / 0x9388ea != 0x3ab69",
+]
+
+
+def get_opaque_predicates():
+    try:
+        get_opaque_predicates.count_get += 1
+    except AttributeError:
+        get_opaque_predicates.count_get = 0
+    if get_opaque_predicates.count_get == len(opaque_predicates):
+        get_opaque_predicates.count_get = 0
+    return opaque_predicates[get_opaque_predicates.count_get]
 
 
 def print_root(root, out_file=sys.stdout):
@@ -70,7 +104,7 @@ def analysis_str(string, ind_root):
         elif len(string.split('=')[0].split('(')[0].strip().split()) > 1 and \
                         re.match('[a-zA-Z_][a-zA-Z0-9_]*', string.split('=')[0].split('(')[0].strip().split()[-1]) \
                         is not None:
-            active_node[ind_root].body.append(Node(active_node[ind_root], 'variable', [], string))  # FIX_ME
+            active_node[ind_root].body.append(Node(active_node[ind_root], 'variable', [], string))
         else:
             active_node[ind_root].body.append(Node(active_node[ind_root], 'other', [], string))
     elif string[-1] == '/' and string[-2] == '*':
@@ -114,6 +148,7 @@ def analysis_file(file_path, ind_root):
 
 
 def rename_node_in_depth(root, old_name, new_name):
+    print(old_name, new_name)
     for i in range(len(root.body)):
         root.body[i].name = re.sub('(^|[^A-Za-z_])(' + old_name + ')([^A-Za-z0-9_])', r'\1' + new_name + r'\3',
                                    root.body[i].name)
@@ -128,15 +163,25 @@ def rename_variables(root):
         else:
             string = root.name
         variables = string.replace(';', '').split(',')
+        arg0 = re.split('[^a-zA-Z0-9_]', variables[0])
+        arg_ind = -1
+        while not re.match('[a-zA-Z_][a-zA-Z0-9_]*', arg0[arg_ind]):
+            arg_ind -= 1
+        arg0 = arg0[arg_ind]
         try:
-            rename_node_in_depth(root.prev, variables[0].split()[1], 'v' + str(rename_variables.count_rename))
+            rename_node_in_depth(root.prev, arg0, 'v' + str(rename_variables.count_rename))
         except AttributeError:
             rename_variables.count_rename = 0
-            rename_node_in_depth(root.prev, variables[0].split()[1], 'v' + str(rename_variables.count_rename))
+            rename_node_in_depth(root.prev, arg0, 'v' + str(rename_variables.count_rename))
         rename_variables.count_rename += 1
         for i in range(1, len(variables)):
+            arg = re.split('[^a-zA-Z0-9_]', variables[i].split('=')[0])
+            arg_ind = -1
+            while not re.match('[a-zA-Z_][a-zA-Z0-9_]*', arg[arg_ind]):
+                arg_ind -= 1
+            arg = arg[arg_ind]
             rename_node_in_depth(
-                root.prev, variables[i].split('=')[0].strip(), 'v' + str(rename_variables.count_rename))
+                root.prev, arg, 'v' + str(rename_variables.count_rename))
             rename_variables.count_rename += 1
     for i in root.body:
         rename_variables(i)
@@ -170,7 +215,16 @@ def rename_functions(root):
 
 def add_nodes(src_root, dst_root):
     for i in src_root.body:
-        if not ' main(' in i.name:
+        if ' main(' not in i.name:
+            for j in range(len(dst_root.body)):
+                args = str(i.name).split('(')[1].split(')')[0].split(',')
+                for arg in args:
+                    dst_root.body[j].body.insert(0, Node(dst_root, 'variable', [], arg+';'))
+                func_name = str(i.name).split(maxsplit=1)[1]
+                dst_root.body[j].body.append(Node(dst_root, 'if',
+                                             [Node(dst_root, 'other', [], func_name)],
+                                             'if (' + get_opaque_predicates() + ') '))
+
             dst_root.body.insert(0, i)
 
 
@@ -181,14 +235,15 @@ if __name__ == '__main__':
     del_type(root_tree[0], 'comment')
     del_type(root_tree[1], 'comment')
 
-    rename_functions(root_tree[0])
-    rename_functions(root_tree[1])
+    # new_root = copy.deepcopy(root_tree[1])
+    # add_nodes(root_tree[0], root_tree[1])
+    # add_nodes(new_root, root_tree[0])
 
     rename_variables(root_tree[0])
     rename_variables(root_tree[1])
 
-    add_nodes(root_tree[0], root_tree[1])
-    add_nodes(root_tree[1], root_tree[0])
+    rename_functions(root_tree[0])
+    rename_functions(root_tree[1])
 
     print_root(root_tree[0])
     print_root(root_tree[1])
