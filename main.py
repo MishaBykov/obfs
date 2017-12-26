@@ -238,11 +238,11 @@ if __name__ == '__main__':
     # add_nodes(root_tree[0], root_tree[1])
     # add_nodes(new_root, root_tree[0])
 
-    rename_functions(root_tree[0])
-    rename_functions(root_tree[1])
-
     rename_variables(root_tree[0])
     rename_variables(root_tree[1])
+
+    rename_functions(root_tree[0])
+    rename_functions(root_tree[1])
 
     file0 = open('out0.cpp', 'w')
     file1 = open('out1.cpp', 'w')
