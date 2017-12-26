@@ -245,9 +245,6 @@ if __name__ == '__main__':
     rename_functions(root_tree[0])
     rename_functions(root_tree[1])
 
-    print_root(root_tree[0])
-    print_root(root_tree[1])
-
     file0 = open('out0.cpp', 'w')
     file1 = open('out1.cpp', 'w')
     print_root(root_tree[0], file0)
